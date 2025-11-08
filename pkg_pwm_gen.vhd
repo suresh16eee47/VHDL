@@ -1,166 +1,184 @@
-package pkg_pwm_gen is
-
-end package pkg_pwm_gen;
-
-
 library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
-
--- Uncomment the following library declaration if using
--- arithmetic functions with Signed or Unsigned values
 use IEEE.NUMERIC_STD.ALL;
+package pkg_pwm_gen is
+	constant 	p_frq_bits 		: INTEGER := 19;
+    constant	p_duty_cyc_bits : integer := 31;
+    constant	p_smp_frq_bits 	: INTEGER := 31
+	procedure pro_pwm_gen 
+	(
+		signal p_clk 								: in 	STD_LOGIC;
+		signal p_pwm 								: out 	STD_LOGIC;
+		signal p_cpwm 								: out 	STD_LOGIC;
+		signal p_high_low 							: out 	STD_LOGIC;
+		signal p_low_high 							: out 	STD_LOGIC;
+		signal p_fr_rev 							: in 	STD_LOGIC;
+		signal p_en                                	: in    STD_LOGIC;
+		signal p_frq 								: in 	STD_LOGIC_VECTOR (p_frq_bits downto 0);
+		signal p_duty_cyc 							: in 	STD_LOGIC_VECTOR (p_duty_cyc_bits downto 0);
+		signal p_smp_frq                           	: in 	STD_LOGIC_VECTOR (p_smp_frq_bits downto 0)
+	);
+end package pkg_pwm_gen;
 
--- Uncomment the following library declaration if instantiating
--- any Xilinx leaf cells in this code.
---library UNISIM;
---use UNISIM.VComponents.all;
+package body pkg_pwm_gen is
+	procedure pro_pwm_gen 
+	(
+		signal p_clk 								: in 	STD_LOGIC;
+		signal p_pwm 								: out 	STD_LOGIC;
+		signal p_cpwm 								: out 	STD_LOGIC;
+		signal p_high_low 							: out 	STD_LOGIC;
+		signal p_low_high 							: out 	STD_LOGIC;
+		signal p_fr_rev 							: in 	STD_LOGIC;
+		signal p_en                                	: in    STD_LOGIC;
+		signal p_frq 								: in 	STD_LOGIC_VECTOR (p_frq_bits downto 0);
+		signal p_duty_cyc 							: in 	STD_LOGIC_VECTOR (p_duty_cyc_bits downto 0);
+		signal p_smp_frq                           	: in 	STD_LOGIC_VECTOR (p_smp_frq_bits downto 0)
+	) is 
+	variable s_pwm                            	: std_logic := '0';
+	variable s_cpwm                           	: std_logic := '0';
+	variable s_high_low                       	: std_logic := '0';
+	variable s_low_high                       	: std_logic := '0';
+	variable pul_cntr                         	: natural;    
+	variable s_pwm_pul_state                  	: std_logic := '0';
+	variable s_cpwm_on_cnt                    	: natural;
+	variable s_cpwm_cntr                      	: natural := 0;  
+	variable s_cpwm_off_cnt                   	: natural;  
+	variable s_dead_pul_cnt                   	: natural := 200;
+	variable s_cpwm_ini_ctr                   	: natural;
+	variable s_cpwm_pul_state                 	: std_logic := '1';
+	variable s_en_status                      	: std_logic := '0';
+	variable s_cpwm_en                        	: std_logic := '0';
+	variable s_prd_cnt                        	: natural ;
+	variable s_on_prd_cnt                     	: natural ;             
+	variable s_off_prd_cnt                    	: natural ;	
+	
+	begin
+		s_en_status <= '1' when (p_en = '1' and s_en_status = '0') else '0';
+		if(s_en_status = '1' and rising_edge(p_clk))then
+		if(s_cpwm_en = '0')then
+			if(s_cpwm_ini_ctr < s_dead_pul_cnt)then
+				s_cpwm_ini_ctr <= s_cpwm_ini_ctr+1;
+			else
+				s_cpwm_ini_ctr <= 0;
+				s_cpwm_en <= '1';
+			end if;
+			end if;
+		end if;
+		
 
-entity pwm_dec is
-  Port (
-p_clk 								: in 	STD_LOGIC;
-p_pwm 								: in 	STD_LOGIC;
-p_cpwm 								: in 	STD_LOGIC;
-p_high_low 							: in 	STD_LOGIC;
-p_low_high 							: in 	STD_LOGIC;
-p_fr_rev 							: out 	STD_LOGIC;
-p_en                                : in    STD_LOGIC;
-p_frq_det 							: out 	STD_LOGIC_VECTOR (19 downto 0);
-p_duty_cyc_det 						: out 	STD_LOGIC_VECTOR (31 downto 0);
-p_smp_frq                           : in 	STD_LOGIC_VECTOR (31 downto 0)
-   );
-end pwm_dec;
+end package body pkg_pwm_gen;
 
-architecture Behavioral of pwm_dec is
-signal s_prd_cnt                        : natural ;
-signal s_on_prd_cnt                     : natural ;             
-signal s_off_prd_cnt                    : natural ;  
-signal s_pwm                            : std_logic := '0';
-signal s_cpwm                           : std_logic := '0';
-signal s_high_low                       : std_logic := '0';
-signal s_low_high                       : std_logic := '0';
-signal pul_cntr                         : natural;    
-signal s_pwm_pul_state                  : std_logic := '0';
 
-signal s_dead_on_cnt                    : natural;
-signal s_dead_off_cnt                   : natural;  
-signal s_dead_cntr                      : natural := 0;  
-signal s_dead_pul_state                 : std_logic := '1';
+architecture Behavioral of pwm_gen is
+  
 
-signal s_dec_pwm                        : std_logic := '0';
-signal s_dec_dead_pul                   : std_logic := '0';
+type pwm_port_sig is record
+r_pwm       : std_logic ;
+r_cpwm      : std_logic ;
+r_high_low  : std_logic ;
+r_low_high  : std_logic ;
+end record;
+signal s_pwm_port_sig : pwm_port_sig;
 
-signal s_frd_pul_det                    : std_logic := '0';
-signal s_rev_pul_det                    : std_logic := '0';
-signal s_frd_on_cnt                     : natural := 1;
-signal s_frd_cntr                       : natural := 1;
-signal s_frd_freq                       : natural := 1;
-signal s_frd_off_cnt                    : natural := 1;
-signal s_frd_state                      : std_logic := '0';
-signal s_rev_state                      : std_logic := '0';
-signal s_rev_on_cnt                     : natural :=1 ;
-signal s_rev_cntr                       : natural := 1;
-signal s_rev_freq                       : natural := 1;
-signal s_rev_off_cnt                    : natural := 1;
-signal s_direction                      : std_logic_vector (1 downto 0);
-signal s_f_direction_state              : std_logic;
-signal s_r_direction_state              : std_logic; 
-signal s_duty_cyc_det                   : natural := 1;
+
+
 begin
 
---generating decoded PWM Frequency--
-process(p_en,s_dec_pwm,s_pwm,s_cpwm,s_high_low,s_low_high,s_dec_dead_pul,s_frd_pul_det,
-p_high_low,p_low_high,p_pwm,p_cpwm,s_frd_freq,s_frd_on_cnt,s_frd_off_cnt,p_smp_frq,s_rev_freq)
+
+s_pwm_port_sig <= (s_pwm, s_cpwm, s_high_low, s_low_high);
+
+
+default_state : process(p_en,p_clk)
 begin
-if(p_en = '1') then
-s_dec_pwm <= (s_pwm and (not s_cpwm)) and (s_high_low and (not s_low_high));
-s_dec_dead_pul <= not (s_pwm or s_cpwm);
-s_frd_pul_det <= (p_high_low and (not p_low_high)) and (p_pwm and (not p_cpwm));
-s_rev_pul_det <= (p_cpwm and (not p_pwm)) and (p_low_high and (not p_high_low));
-s_frd_freq <= (TO_INTEGER(UNSIGNED(p_smp_frq))/(s_frd_on_cnt+s_frd_off_cnt));
-s_rev_freq <= (TO_INTEGER(UNSIGNED(p_smp_frq))/(s_rev_on_cnt+s_rev_off_cnt));
-end if;
+
 end process;
 
---generating frd, reverse states--
-process(p_en, s_frd_pul_det,s_rev_pul_det,p_clk)
+process(s_en_status,p_clk)
 begin
 
----- Forward state detector ----
-if(falling_edge(s_frd_pul_det))then
-    if(s_frd_pul_det = '0')then
-        s_frd_state <= '0';
-        s_frd_on_cnt <= s_frd_cntr;
-        s_rev_on_cnt <= 1;
-        s_frd_cntr <= 0;
-    end if;
-end if;
-
-if(rising_edge(s_frd_pul_det))then
-    if(p_en = '1') then
-        s_frd_state <= '1';
-        s_frd_off_cnt <= s_frd_cntr;
-        s_rev_off_cnt <= 1;
-        s_frd_cntr <= 0;
-    end if;
-end if;
-    
----- reverse state detector ----
-if(falling_edge(s_rev_pul_det))then
-    if(p_en = '1') then
-        s_rev_state <= '0';   
-        s_rev_on_cnt <= s_rev_cntr;
-        s_frd_on_cnt <= 1;
-        s_rev_cntr <= 0;
-    end if;
-end if;
-
-if(rising_edge(s_rev_pul_det))then
-    if(p_en = '1') then
-        s_rev_state <= '1';
-        s_rev_off_cnt <= s_rev_cntr;
-        s_frd_off_cnt <= 1;
-        s_rev_cntr <= 0;
-    end if;
-end if;
-
-
---- FRD and reverse pulse counter ---
-if(falling_edge(p_clk)) then
----- Forward ON/OFF counter ----
-if(s_frd_state = '0')then
-    s_frd_cntr <= s_frd_cntr+1;
-elsif(s_frd_state = '1')then
-    s_frd_cntr <= s_frd_cntr+1;
-end if;
-    
----- Reverse ON/OFF counter ----
-if(s_rev_state = '0')then
-    s_rev_cntr <= s_rev_cntr+1;
-elsif(s_rev_state = '1')then
-    s_rev_cntr <= s_rev_cntr+1;
-end if;     
-end if;
 end process;
 
 
-dir_det : process(p_clk)
+-- Process for generating PWM pulse with duty cycle with ON pulse count and OFF pulse count--
+pwm_gen : process(p_clk)
 begin
-if(rising_edge(p_clk)) then
 if(p_en = '1')then
-    if(s_rev_on_cnt = 1 and s_rev_off_cnt = 1) then
-        s_direction  <= "00"; 
-        p_frq_det <= std_logic_vector(TO_UNSIGNED(s_frd_freq,20));
-        s_duty_cyc_det <= (1/((s_frd_on_cnt+s_frd_off_cnt)/s_frd_on_cnt))*100;
-        p_duty_cyc_det <= std_logic_vector(TO_UNSIGNED(((1/((s_frd_on_cnt+s_frd_off_cnt)/s_frd_on_cnt))*100),32));
-    elsif (s_frd_on_cnt = 1 and s_frd_off_cnt = 1) then
-        s_direction  <= "01";
-        p_frq_det <= std_logic_vector(TO_UNSIGNED(s_rev_freq,20));
-        s_duty_cyc_det <= (1/((s_rev_on_cnt+s_rev_off_cnt)/s_rev_on_cnt))*100;
-        p_duty_cyc_det <= std_logic_vector(TO_UNSIGNED(((1/((s_rev_on_cnt+s_rev_off_cnt)/s_rev_on_cnt))*100),32));
+--pule count of a required pwm frequency W.R.T sampling frequency (Sampling frequency/Required frequency)--- 
+s_prd_cnt              <= (to_integer(UNSIGNED(p_smp_frq)))/(to_integer(UNSIGNED(p_frq)));
+--pule count of ON time of the PWM signal with duty cycle ( pulse period count x duty cycle) --- 
+s_on_prd_cnt           <= (s_prd_cnt*(to_integer(UNSIGNED(p_duty_cyc))))/100;
+--pule count of OFF time of the PWM signal with duty cycle (pulse period count - on time count) --- 
+s_off_prd_cnt          <= s_prd_cnt - s_on_prd_cnt;
+--pule count of ON time of the C-PWM signal--
+s_cpwm_on_cnt          <= s_off_prd_cnt - (2*s_dead_pul_cnt);
+--pule count of OFF time of the C-PWM signal--
+s_cpwm_off_cnt          <= s_on_prd_cnt + (2*s_dead_pul_cnt);
+end if; 
+
+if(rising_edge(p_clk) and s_en_status ='1') then
+
+-- PWM generator--
+if(s_pwm_pul_state = '0') then
+if(pul_cntr < s_off_prd_cnt)then
+    pul_cntr    <= pul_cntr + 1;
+else 
+    s_pwm_pul_state   <= '1';
+    pul_cntr    <= 0;  
+end if;
+
+elsif(s_pwm_pul_state = '1') then
+if(pul_cntr < s_on_prd_cnt)then
+    pul_cntr    <= pul_cntr + 1;
+else 
+    s_pwm_pul_state   <= '0';
+    pul_cntr    <= 0;  
+end if;
+end if;
+
+
+-- C-PWM generator --
+if(s_cpwm_pul_state = '1' and s_cpwm_en ='1') then
+    if(s_cpwm_cntr < s_cpwm_on_cnt)then
+        s_cpwm_cntr <= s_cpwm_cntr + 1;
     else
-        s_direction  <= "10";
+        s_cpwm_pul_state <= '0';
+        s_cpwm_cntr <= 0;
+    end if;
+elsif(s_cpwm_pul_state = '0' and s_cpwm_en ='1') then
+    if(s_cpwm_cntr < s_cpwm_off_cnt)then
+        s_cpwm_cntr <= s_cpwm_cntr + 1;
+    else
+        s_cpwm_pul_state <= '1';
+        s_cpwm_cntr <= 0;
     end if;
 end if;
 end if;
 end process;
+
+
+-- Forward reverse connection switch---
+process(p_clk,s_en_status)
+begin
+if(s_en_status = '1' and rising_edge(p_clk))then
+    if(p_fr_rev = '1') then
+        s_pwm		<= s_pwm_pul_state;
+        s_cpwm		<= s_cpwm_pul_state;
+        s_high_low	<= '1';
+        s_low_high	<= '0';
+    elsif(p_fr_rev = '0') then
+        s_pwm		<= '0';
+        s_cpwm 		<= '1';
+        s_high_low	<= s_cpwm_pul_state;
+        s_low_high	<= s_pwm_pul_state;
+    end if;
+end if;
+end process;
+
+
+-- Port ti signal connection--
+p_pwm <= s_pwm_port_sig.r_pwm;
+p_cpwm <= s_pwm_port_sig.r_cpwm;
+p_high_low <= s_pwm_port_sig.r_high_low;
+p_low_high <= s_pwm_port_sig.r_low_high;
+
 end Behavioral;
