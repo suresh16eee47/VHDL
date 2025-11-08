@@ -1,0 +1,152 @@
+library IEEE;
+use IEEE.STD_LOGIC_1164.ALL;
+use IEEE.NUMERIC_STD.ALL;
+package pkg_pwm_decode is
+	procedure pro_pwm_decode 
+	(
+		signal p_clk 								: in 	STD_LOGIC;
+		signal p_pwm 								: in 	STD_LOGIC;
+		signal p_cpwm 								: in 	STD_LOGIC;
+		signal p_high_low 							: in 	STD_LOGIC;
+		signal p_low_high 							: in 	STD_LOGIC;
+		signal p_fr_rev 							: out 	STD_LOGIC;
+		signal p_en                                	: in    STD_LOGIC;
+		signal p_frq_det 							: out 	STD_LOGIC_VECTOR (19 downto 0);
+		signal p_duty_cyc_det 						: out 	STD_LOGIC_VECTOR (31 downto 0);
+		signal p_smp_frq                           	: in 	STD_LOGIC_VECTOR (31 downto 0)
+	);
+	
+	procedure pro_pwm_gen
+	(
+		signal p_clk 								: in 	STD_LOGIC;
+		signal p_pwm 								: in 	STD_LOGIC;
+		signal p_cpwm 								: in 	STD_LOGIC;
+		signal p_high_low 							: in 	STD_LOGIC;
+		signal p_low_high 							: in 	STD_LOGIC;
+		signal p_fr_rev 							: out 	STD_LOGIC;
+		signal p_en                                	: in    STD_LOGIC;
+		signal p_frq_det 							: out 	STD_LOGIC_VECTOR (19 downto 0);
+		signal p_duty_cyc_det 						: out 	STD_LOGIC_VECTOR (31 downto 0);
+		signal p_smp_frq                           	: in 	STD_LOGIC_VECTOR (31 downto 0)
+	);
+	
+	
+end package pkg_pwm_decode;
+
+package body pkg_pwm_decode is
+	procedure pro_pwm_decode 
+		(
+			signal p_clk 								: in 	STD_LOGIC;
+			signal p_pwm 								: in 	STD_LOGIC;
+			signal p_cpwm 								: in 	STD_LOGIC;
+			signal p_high_low 							: in 	STD_LOGIC;
+			signal p_low_high 							: in 	STD_LOGIC;
+			signal p_fr_rev 							: out 	STD_LOGIC;
+			signal p_en                                	: in    STD_LOGIC;
+			signal p_frq_det 							: out 	STD_LOGIC_VECTOR (19 downto 0);
+			signal p_duty_cyc_det 						: out 	STD_LOGIC_VECTOR (31 downto 0);
+			signal p_smp_frq                           	: in 	STD_LOGIC_VECTOR (31 downto 0)
+		) is
+		
+			variable s_prd_cnt                        	: natural ;
+			variable s_on_prd_cnt                     	: natural ;             
+			variable s_off_prd_cnt                    	: natural ;  
+			variable s_pwm                            	: std_logic := '0';
+			variable s_cpwm                           	: std_logic := '0';
+			variable s_high_low                       	: std_logic := '0';
+			variable s_low_high                       	: std_logic := '0';
+			variable pul_cntr                         	: natural;    
+			variable s_pwm_pul_state                  	: std_logic := '0';
+				
+			variable s_dead_on_cnt                    	: natural;
+			variable s_dead_off_cnt                   	: natural;  
+			variable s_dead_cntr                      	: natural := 0;  
+			variable s_dead_pul_state                 	: std_logic := '1';
+				
+			variable s_dec_pwm                        	: std_logic := '0';
+			variable s_dec_dead_pul                   	: std_logic := '0';
+				
+			variable s_frd_pul_det                    	: std_logic := '0';
+			variable s_rev_pul_det                    	: std_logic := '0';
+			variable s_frd_on_cnt                     	: natural := 1;
+			variable s_frd_cntr                       	: natural := 1;
+			variable s_frd_freq                       	: natural := 1;
+			variable s_frd_off_cnt                    	: natural := 1;
+			variable s_frd_state                      	: std_logic := '0';
+			variable s_rev_state                      	: std_logic := '0';
+			variable s_rev_on_cnt                     	: natural :=1 ;
+			variable s_rev_cntr                       	: natural := 1;
+			variable s_rev_freq                       	: natural := 1;
+			variable s_rev_off_cnt                    	: natural := 1;
+			variable s_direction                      	: std_logic_vector (1 downto 0);
+			variable s_f_direction_state              	: std_logic;
+			variable s_r_direction_state              	: std_logic; 
+			variable s_duty_cyc_det                   	: natural := 1;
+		begin 
+		--generating decoded PWM Frequency--
+			if(p_en = '1' and rising_edge(p_clk)) then
+				s_dec_pwm 		<= (s_pwm and (not s_cpwm)) and (s_high_low and (not s_low_high));
+				s_dec_dead_pul 	<= not (s_pwm or s_cpwm);
+				s_frd_pul_det 	<= (p_high_low and (not p_low_high)) and (p_pwm and (not p_cpwm));
+				s_rev_pul_det 	<= (p_cpwm and (not p_pwm)) and (p_low_high and (not p_high_low));
+				s_frd_freq 		<= (TO_INTEGER(UNSIGNED(p_smp_frq))/(s_frd_on_cnt+s_frd_off_cnt));
+				s_rev_freq 		<= (TO_INTEGER(UNSIGNED(p_smp_frq))/(s_rev_on_cnt+s_rev_off_cnt));
+			end if;
+			
+		--generating frd, reverse states--
+			
+			---- Forward state detector ----
+			if(s_frd_pul_det = '0' and rising_edge(p_clk) and p_en = '1')then
+				s_frd_state := '0';
+				s_frd_on_cnt := s_frd_cntr;
+				s_rev_on_cnt := 1;
+				s_frd_cntr := 0;
+			end if;
+			
+			---- reverse state detector ----
+			if(s_frd_pul_det = '1' and rising_edge(p_clk) and p_en = '1')then
+				s_rev_state <= '0';   
+				s_rev_on_cnt <= s_rev_cntr;
+				s_frd_on_cnt <= 1;
+				s_rev_cntr <= 0;
+			end if;
+			
+			--- FRD and reverse pulse counter ---
+			if(falling_edge(p_clk)) then
+			
+				---- Forward ON/OFF counter ----
+				if(s_frd_state = '0')then
+					s_frd_cntr <= s_frd_cntr+1;
+				elsif(s_frd_state = '1')then
+					s_frd_cntr <= s_frd_cntr+1;
+				end if;
+			
+				---- Reverse ON/OFF counter ----
+				if(s_rev_state = '0')then
+					s_rev_cntr <= s_rev_cntr+1;
+				elsif(s_rev_state = '1')then
+					s_rev_cntr <= s_rev_cntr+1;
+				end if;     
+			end if;
+			
+			if(rising_edge(p_clk)) then
+				if(p_en = '1')then
+					if(s_rev_on_cnt = 1 and s_rev_off_cnt = 1) then
+						s_direction  <= "00"; 
+						p_frq_det <= std_logic_vector(TO_UNSIGNED(s_frd_freq,20));
+						s_duty_cyc_det <= (1/((s_frd_on_cnt+s_frd_off_cnt)/s_frd_on_cnt))*100;
+						p_duty_cyc_det <= std_logic_vector(TO_UNSIGNED(((1/((s_frd_on_cnt+s_frd_off_cnt)/s_frd_on_cnt))*100),32));
+					elsif (s_frd_on_cnt = 1 and s_frd_off_cnt = 1) then
+						s_direction  <= "01";
+						p_frq_det <= std_logic_vector(TO_UNSIGNED(s_rev_freq,20));
+						s_duty_cyc_det <= (1/((s_rev_on_cnt+s_rev_off_cnt)/s_rev_on_cnt))*100;
+						p_duty_cyc_det <= std_logic_vector(TO_UNSIGNED(((1/((s_rev_on_cnt+s_rev_off_cnt)/s_rev_on_cnt))*100),32));
+					else
+						s_direction  <= "10";
+					end if;
+				end if;
+			end if;
+	end pro_pwm_decode;
+end package body pkg_pwm_decode;
+
+
