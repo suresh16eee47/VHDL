@@ -42,7 +42,8 @@ p_fr_rev 							: out 	STD_LOGIC;
 p_en                                : in    STD_LOGIC;
 p_frq_det 							: out 	STD_LOGIC_VECTOR (19 downto 0);
 p_duty_cyc_det 						: out 	STD_LOGIC_VECTOR (31 downto 0);
-p_smp_frq                           : in 	STD_LOGIC_VECTOR (31 downto 0)
+p_smp_frq                           : in 	STD_LOGIC_VECTOR (31 downto 0);
+p_dir_det                           : out   std_logic_vector (1 downto 0)
    );
 end pwm_dec;
 
@@ -82,6 +83,17 @@ signal s_f_direction_state              : std_logic;
 signal s_r_direction_state              : std_logic; 
 signal s_duty_cyc_det                   : natural := 1;
 begin
+
+--process(bram_clk_a)
+--begin
+--    if(rising_edge(bram_clk_a))then
+--        if(bram_wea = "0000" and bram_ena = '1' and bram_addr = x"0000_0004")then
+--            freq <= bram_data;
+--        end if;
+--    end if
+--end process;
+
+--bram_rd_data <= freq when bram_wea = "0000" and bram_addr = x"0000_0004" else 
 
 --generating decoded PWM Frequency--
 process(p_en,s_dec_pwm,s_pwm,s_cpwm,s_high_low,s_low_high,s_dec_dead_pul,s_frd_pul_det,
@@ -168,15 +180,19 @@ if(p_en = '1')then
         p_frq_det <= std_logic_vector(TO_UNSIGNED(s_frd_freq,20));
         s_duty_cyc_det <= (1/((s_frd_on_cnt+s_frd_off_cnt)/s_frd_on_cnt))*100;
         p_duty_cyc_det <= std_logic_vector(TO_UNSIGNED(((1/((s_frd_on_cnt+s_frd_off_cnt)/s_frd_on_cnt))*100),32));
+        p_fr_rev <= '1';
     elsif (s_frd_on_cnt = 1 and s_frd_off_cnt = 1) then
         s_direction  <= "01";
         p_frq_det <= std_logic_vector(TO_UNSIGNED(s_rev_freq,20));
         s_duty_cyc_det <= (1/((s_rev_on_cnt+s_rev_off_cnt)/s_rev_on_cnt))*100;
         p_duty_cyc_det <= std_logic_vector(TO_UNSIGNED(((1/((s_rev_on_cnt+s_rev_off_cnt)/s_rev_on_cnt))*100),32));
+        p_fr_rev <= '0'; 
     else
         s_direction  <= "10";
     end if;
 end if;
 end if;
+
+p_dir_det <= s_direction;
 end process;
 end Behavioral;
