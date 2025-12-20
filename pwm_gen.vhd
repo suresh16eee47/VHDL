@@ -66,11 +66,11 @@ s_pwm_port_sig <= (s_pwm, s_cpwm, s_high_low, s_low_high);
 default_state : process(p_en,p_clk)
 begin
 if(rising_edge(p_clk)) then
-if(p_en = '1' and s_en_status = '0')then
-    s_en_status <= '1';
-elsif(p_en= '0' and s_en_status = '1')then
-    s_en_status <= '0';
-end if;    
+    if(p_en = '1' and s_en_status = '0')then
+        s_en_status <= '1';
+    elsif(p_en= '0' and s_en_status = '1')then
+        s_en_status <= '0';
+    end if;    
 end if;
 end process;
 
