@@ -60,14 +60,14 @@ entity axi_bram_decode is
     pwm_dec_p_dir_det                           : in   std_logic_vector (1 downto 0);
     
 --    LED EN
-    p_led_en                                    : OUT std_logic
+    p_led_en                                    : OUT std_logic := '1'
     );
 end axi_bram_decode;
 
 architecture Behavioral of axi_bram_decode is
 signal s_p_addr_in : std_logic_vector (31 downto 0);
 signal zero_pad : std_logic_vector (18 downto 0) := (others => '0');
-signal base_addr_pwm_gen : std_logic_vector (
+--signal base_addr_pwm_gen : std_logic_vector (
 begin
 s_p_addr_in <= zero_pad & p_addr_in;
 
@@ -133,7 +133,6 @@ if (p_en_in = '1') then
         elsif (s_p_addr_in = x"0000_0018") then
             p_data_out <=  pwm_dec_p_frq_det & pwm_dec_p_dir_det & "00" & x"00";
            
-        
 --        DEBUG LED 
         elsif (s_p_addr_in = x"0000_1FFC") then
             p_data_out <=  v_p_led_en;
